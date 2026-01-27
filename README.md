@@ -4,7 +4,7 @@ LangInterview AI is an intelligent, end-to-end AI-powered interview platform des
 
 ---
 
-## 🚀 Features
+## Features
 
 - **Multiple Interview Modes**  
   Conduct interviews in text-based or voice-based modes.
