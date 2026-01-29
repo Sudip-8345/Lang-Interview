@@ -136,6 +136,11 @@ venv.bak/
 # PyTorch model files
 *.pt
 
+# Large files
+*.pdf
+*.wav
+*.mp3
+
 # Spyder project settings
 .spyderproject
 .spyproject
