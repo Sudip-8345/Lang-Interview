@@ -1,6 +1,7 @@
 # Core dependencies
 streamlit
 python-dotenv
+scipy
 
 # LangChain and LangGraph dependencies
 langchain
@@ -29,6 +30,7 @@ gtts
 sounddevice
 openai-whisper
 assemblyai
+SpeechRecognition
 elevenlabs
 audio-recorder-streamlit
 av  # Required for audio processing
