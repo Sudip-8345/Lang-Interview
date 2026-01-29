@@ -133,8 +133,9 @@ ENV/
 env.bak/
 venv.bak/
 *db/
-*pt
-*models/
+
+# PyTorch model files
+*.pt
 
 # Spyder project settings
 .spyderproject
