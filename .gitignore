@@ -134,6 +134,7 @@ env.bak/
 venv.bak/
 *db/
 *pt
+*models/
 
 # Spyder project settings
 .spyderproject
