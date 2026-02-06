@@ -1,7 +1,17 @@
 # Core dependencies
-streamlit
 python-dotenv
 scipy
+pydantic
+
+# Web framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
 
 # LangChain and LangGraph dependencies
 langchain
@@ -20,30 +30,26 @@ google-generativeai
 # Vector stores
 langchain-chroma
 chromadb
-pysqlite3
 
 # Document processing
 pypdf
 
-# Audio processing
+# TTS - Edge TTS (primary) and gTTS (fallback)
+edge-tts
 gtts
-sounddevice
+
+# STT - Whisper (primary) and SpeechRecognition (fallback)
 openai-whisper
-assemblyai
 SpeechRecognition
-elevenlabs
-audio-recorder-streamlit
-av  # Required for audio processing
+
+# Audio processing
+soundfile
+pydub
+numpy
 
 # PDF generation
-fpdf
 reportlab
 
-# Visualization
+# Visualization (optional)
 graphviz
 ipython
-
-# Optional: for development
-# pytest>=7.3.1
-# black>=23.3.0
-# isort>=5.12.0
