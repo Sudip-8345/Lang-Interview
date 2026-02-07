@@ -9,21 +9,7 @@ logger = get_logger(__name__)
 
 def get_llm(temperature: float = 0.6):
     
-    # Primary: OpenRouter (matching notebook)
-    if settings.openrouter_api_key:
-        try:
-            llm = ChatOpenAI(
-                model=settings.openrouter_model,
-                api_key=settings.openrouter_api_key,
-                base_url=settings.openrouter_base_url,
-                temperature=temperature
-            )
-            logger.info(f"Initialized LLM via OpenRouter: {settings.openrouter_model}")
-            return llm
-        except Exception as e:
-            logger.warning(f"OpenRouter LLM initialization failed: {e}")
-    
-    # Fallback 1: Groq
+    # Primary: Groq
     if settings.groq_api_key:
         try:
             llm = ChatGroq(
@@ -36,7 +22,7 @@ def get_llm(temperature: float = 0.6):
         except Exception as e:
             logger.warning(f"Groq LLM initialization failed: {e}")
     
-    # Fallback 2: Google
+    # Fallback: Google
     if settings.google_api_key:
         try:
             llm = ChatGoogleGenerativeAI(
@@ -48,9 +34,22 @@ def get_llm(temperature: float = 0.6):
             return llm
         except Exception as e:
             logger.error(f"Google LLM initialization failed: {e}")
-    
-    raise RuntimeError("No LLM could be initialized. Check your API keys.")
 
+    # Fallback: OpenRouter
+    if settings.openrouter_api_key:
+        try:
+            llm = ChatOpenAI(
+                model=settings.openrouter_model,
+                api_key=settings.openrouter_api_key,
+                base_url=settings.openrouter_base_url,
+                temperature=temperature
+            )
+            logger.info(f"Initialized LLM via OpenRouter: {settings.openrouter_model}")
+            return llm
+        except Exception as e:
+            logger.warning(f"OpenRouter LLM initialization failed: {e}")
+            
+    raise RuntimeError("No LLM could be initialized. Check your API keys.")
 
 # Default LLM instance
 llm = get_llm()

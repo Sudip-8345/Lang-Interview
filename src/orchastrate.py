@@ -152,7 +152,13 @@ class InterviewSession:
                 "end of the interview",
                 "interview is complete",
                 "we're done",
-                "that concludes"
+                "that concludes",
+                "we'll be in touch",
+                "best of luck",
+                "good luck",
+                "great talking with you",
+                "enjoyed learning about",
+                "enjoyed our conversation"
             ]
             content_lower = last_msg.content.lower()
             return any(phrase in content_lower for phrase in end_phrases)

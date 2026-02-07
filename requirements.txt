@@ -38,8 +38,8 @@ pypdf
 edge-tts
 gtts
 
-# STT - Whisper (primary) and SpeechRecognition (fallback)
-openai-whisper
+# STT - Deepgram (primary) and SpeechRecognition (fallback)
+deepgram-sdk
 SpeechRecognition
 
 # Audio processing
@@ -53,3 +53,6 @@ reportlab
 # Visualization (optional)
 graphviz
 ipython
+
+# Gradio web UI
+gradio

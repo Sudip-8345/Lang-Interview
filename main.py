@@ -1,7 +1,3 @@
-"""
-FastAPI Backend for AI Interview System
-With PostgreSQL database integration
-"""
 import os
 import sys
 import uuid
@@ -22,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.config import settings
 from utils.logger import get_logger
 from utils.tts import synthesize as tts_synthesize, list_english_voices
-from utils.stt import transcribe as stt_transcribe, preload_whisper_model
+from utils.stt import transcribe as stt_transcribe, preload_deepgram
 from db.database import get_db, init_db, close_db
 from services import interview_service
 
@@ -86,9 +82,8 @@ class SessionListItem(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events"""
     # Startup
-    logger.info("Starting AI Interview Backend...")
+    logger.info("Starting AI Interview Backend..")
     
     # Initialize database
     await init_db()
@@ -98,8 +93,8 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.upload_dir, exist_ok=True)
     os.makedirs("voice_outputs", exist_ok=True)
     
-    # Preload whisper model
-    preload_whisper_model(settings.stt_whisper_model)
+    # Initialize Deepgram client
+    preload_deepgram()
     
     logger.info(f"Server ready at http://{settings.host}:{settings.port}")
     
@@ -134,7 +129,6 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
     return {
         "name": "AI Interview System API",
         "version": "2.0.0",
@@ -145,7 +139,6 @@ async def root():
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
-    """Health check with database status"""
     try:
         # Simple query to check DB connection
         sessions = await interview_service.list_sessions(db, limit=1)
@@ -161,7 +154,6 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 
 @app.get("/voices")
 async def get_voices():
-    """Get available TTS voices"""
     try:
         voices = await list_english_voices()
         return {"voices": voices}
@@ -174,7 +166,6 @@ async def get_voices():
 
 @app.post("/upload/jd")
 async def upload_jd(file: UploadFile = File(...)):
-    """Upload Job Description PDF"""
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
@@ -195,7 +186,6 @@ async def upload_jd(file: UploadFile = File(...)):
 
 @app.post("/upload/resume")
 async def upload_resume(file: UploadFile = File(...)):
-    """Upload candidate resume PDF"""
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
@@ -227,7 +217,6 @@ async def create_session(
     num_followup: int = Form(2),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new interview session"""
     session_id = str(uuid.uuid4())
     
     success, message = await interview_service.create_interview_session(
@@ -253,7 +242,6 @@ async def get_session_status(
     session_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get interview session status"""
     status = await interview_service.get_session_status(db, session_id)
     
     if not status:
@@ -268,7 +256,6 @@ async def list_sessions(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    """List all interview sessions"""
     sessions = await interview_service.list_sessions(db, limit, offset)
     return [SessionListItem(**s) for s in sessions]
 
@@ -278,7 +265,6 @@ async def delete_session(
     session_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete an interview session"""
     deleted = await interview_service.delete_interview_session(db, session_id)
     
     if not deleted:
@@ -294,7 +280,6 @@ async def start_interview(
     session_id: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    """Start the interview and get first AI response"""
     success, response = await interview_service.start_interview(db, session_id)
     
     if not success:
@@ -308,7 +293,6 @@ async def chat(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Send a message and get AI response"""
     success, response, is_complete = await interview_service.send_message(
         db, request.session_id, request.message
     )
@@ -325,7 +309,6 @@ async def chat_with_audio(
     message: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    """Send a message and get response with audio"""
     success, response, is_complete = await interview_service.send_message(
         db, session_id, message
     )
@@ -363,7 +346,6 @@ async def get_evaluation(
     session_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get interview evaluation and report"""
     result = await interview_service.get_evaluation_results(db, session_id)
     
     if not result:
@@ -376,7 +358,6 @@ async def get_evaluation(
 
 @app.post("/stt/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(audio: UploadFile = File(...)):
-    """Transcribe audio to text"""
     try:
         audio_data = await audio.read()
         
@@ -393,7 +374,6 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
 @app.post("/tts/synthesize")
 async def synthesize_speech(request: TTSRequest):
-    """Convert text to speech"""
     try:
         audio_bytes = await tts_synthesize(request.text, voice=request.voice)
         
@@ -409,7 +389,6 @@ async def synthesize_speech(request: TTSRequest):
 
 @app.get("/audio/{audio_id}")
 async def get_audio(audio_id: str):
-    """Get saved audio file"""
     audio_path = f"voice_outputs/{audio_id}.mp3"
     
     if not os.path.exists(audio_path):
@@ -426,12 +405,6 @@ async def voice_interview(
     audio: UploadFile = File(...),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Complete voice interview flow:
-    1. Transcribe user audio (STT)
-    2. Get AI response
-    3. Convert response to audio (TTS)
-    """
     try:
         # 1. Transcribe audio to text
         audio_data = await audio.read()
@@ -492,9 +465,6 @@ async def quick_start(
     num_followup: int = Form(2),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Upload documents, create session, and start interview in one call.
-    """
     # Validate files
     if not jd.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="JD must be a PDF file")

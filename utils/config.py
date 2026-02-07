@@ -35,8 +35,8 @@ class Settings(BaseModel):
     tts_rate: str = os.getenv("TTS_RATE", "+0%")
     tts_volume: str = os.getenv("TTS_VOLUME", "+0%")
     
-    # STT settings (Whisper with Google fallback)
-    stt_whisper_model: str = os.getenv("STT_WHISPER_MODEL", "base")
+    # STT settings (Deepgram with Google fallback)
+    deepgram_api_key: str = os.getenv("DEEPGRAM_API_KEY", "")
     stt_language: str = os.getenv("STT_LANGUAGE", "en")
     
     # Audio settings

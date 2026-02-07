@@ -1,59 +1,64 @@
 import os
 import asyncio
 
+from deepgram import DeepgramClient, AsyncDeepgramClient
+
 from utils.logger import get_logger
 from utils.audio import save_to_temp_wav, cleanup_temp_file
+from utils.config import settings
 
 logger = get_logger(__name__)
 
-# Global cached model
-_whisper_model = None
-
-# Cache directory for Whisper model
-WHISPER_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache", "whisper")
+# Deepgram clients (initialized lazily)
+_deepgram_client = None
+_async_deepgram_client = None
 
 # Confidence threshold - below this, ask user to repeat
 CONFIDENCE_THRESHOLD = 0.4
 
 
-async def _load_whisper(model_name: str = "base"):
-    global _whisper_model
+def _get_deepgram_client():
+    global _deepgram_client
     
-    if _whisper_model is None:
-        os.makedirs(WHISPER_CACHE_DIR, exist_ok=True)
-        logger.info(f"Loading Whisper model: {model_name} (cache: {WHISPER_CACHE_DIR})")
-        
-        import whisper
-        _whisper_model = await asyncio.to_thread(
-            whisper.load_model,
-            model_name,
-            download_root=WHISPER_CACHE_DIR
-        )
-        logger.info("Whisper model loaded successfully")
+    if _deepgram_client is None:
+        api_key = settings.deepgram_api_key
+        if not api_key:
+            raise ValueError("DEEPGRAM_API_KEY not configured")
+        _deepgram_client = DeepgramClient(api_key=api_key)
+        logger.info("Deepgram client initialized")
     
-    return _whisper_model
+    return _deepgram_client
 
 
-async def transcribe_with_whisper(audio_path: str, model_name: str = "base") -> tuple:
-    model = await _load_whisper(model_name)
+def _get_async_deepgram_client():
+    global _async_deepgram_client
     
-    result = await asyncio.to_thread(
-        model.transcribe,
-        audio_path,
-        fp16=False,
+    if _async_deepgram_client is None:
+        api_key = settings.deepgram_api_key
+        if not api_key:
+            raise ValueError("DEEPGRAM_API_KEY not configured")
+        _async_deepgram_client = AsyncDeepgramClient(api_key=api_key)
+        logger.info("Async Deepgram client initialized")
+    
+    return _async_deepgram_client
+
+
+async def transcribe_with_deepgram(audio_data: bytes) -> tuple:
+    client = _get_async_deepgram_client()
+    
+    # Use SDK v5 async API for faster response
+    response = await client.listen.v1.media.transcribe_file(
+        request=audio_data,
+        model="nova-2",
+        smart_format=False,  # Disable for speed
+        punctuate=True,
         language="en"
     )
     
-    text = result.get("text", "").strip()
-    
-    # Calculate confidence from segments
-    segments = result.get("segments", [])
-    if segments:
-        avg_logprob = sum(s.get("avg_logprob", -1) for s in segments) / len(segments)
-        # Convert log probability to confidence (0-1 scale)
-        confidence = min(1.0, max(0.0, 1.0 + avg_logprob))
-    else:
-        confidence = 0.5
+    # Extract transcript and confidence
+    result = response.results.channels[0].alternatives[0]
+    text = result.transcript.strip()
+    confidence = result.confidence if hasattr(result, 'confidence') else 0.9
     
     return text, confidence
 
@@ -73,28 +78,27 @@ async def transcribe_with_google(audio_path: str) -> str:
 
 
 async def transcribe(audio_data: bytes, format_hint: str = None) -> str:
-
-    temp_path = None
     
+    # Try Deepgram first
     try:
-        temp_path = await save_to_temp_wav(audio_data, format_hint)
+        text, confidence = await transcribe_with_deepgram(audio_data)
         
-        # Try Whisper first
-        try:
-            text, confidence = await transcribe_with_whisper(temp_path)
-            logger.info(f"Whisper: '{text[:50]}...' (confidence: {confidence:.2f})")
+        if text:
+            logger.info(f"Deepgram: '{text[:50]}...' (confidence: {confidence:.2f})")
             
-            # If confidence is too low, signal to ask user to repeat
-            if confidence < CONFIDENCE_THRESHOLD and len(text) > 0:
+            if confidence < CONFIDENCE_THRESHOLD:
                 logger.warning(f"Low confidence ({confidence:.2f}), asking to repeat")
                 return "[LOW_CONFIDENCE]"
             
             return text
             
-        except Exception as e:
-            logger.warning(f"Whisper failed: {e}, trying Google fallback...")
-        
-        # Fallback to Google
+    except Exception as e:
+        logger.warning(f"Deepgram failed: {e}, trying Google fallback...")
+    
+    # Fallback to Google (needs temp WAV file)
+    temp_path = None
+    try:
+        temp_path = await save_to_temp_wav(audio_data, format_hint)
         text = await transcribe_with_google(temp_path)
         logger.info(f"Google STT: '{text[:50]}...'")
         return text
@@ -112,18 +116,10 @@ async def speech_to_text_async(audio_data: bytes) -> str:
     return await transcribe(audio_data)
 
 
-def preload_whisper_model(model_name: str = "base"):
-    import threading
-    
-    def _preload():
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_load_whisper(model_name))
-            loop.close()
-        except Exception as e:
-            logger.warning(f"Failed to preload whisper model: {e}")
-    
-    thread = threading.Thread(target=_preload, daemon=True)
-    thread.start()
-    logger.info(f"Preloading Whisper model '{model_name}' in background...")
+def preload_deepgram():
+    try:
+        _get_deepgram_client()
+        _get_async_deepgram_client()
+        logger.info("Deepgram clients ready")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Deepgram: {e}")

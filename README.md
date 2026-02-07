@@ -1,213 +1,138 @@
-# LangInterview AI 🎤🤖
+# LangInterview AI
 
-LangInterview AI is an intelligent, end-to-end AI-powered interview platform designed to simulate real-world interviews in both text and voice modes. It dynamically analyzes candidate resumes, asks personalized and technical questions, evaluates responses, and generates professional HR-ready reports in PDF format. The system is built using LangGraph and LangChain to orchestrate a structured, multi-stage interview workflow.
+An AI-powered interview platform that simulates real-world technical interviews using voice and text. Built with LangGraph and LangChain, it analyzes resumes, asks personalized questions, evaluates responses, and generates professional HR reports.
 
----
+## What It Does
+
+This system acts as a virtual recruiter. Upload a job description and resume, and the AI conducts a structured interview - greeting the candidate, asking about their background and projects, posing technical questions, and wrapping up with feedback. Everything is transcribed, evaluated, and exported as a PDF report.
 
 ## Features
 
-- **Multiple Interview Modes**  
-  Conduct interviews in text-based or voice-based modes.
+- Voice-based interviews with real-time speech-to-text and text-to-speech
+- Personalized questions based on uploaded resume
+- Multi-stage interview workflow (intro, project discussion, technical questions, evaluation)
+- Automatic scoring and feedback generation
+- PDF report export for HR review
+- Web interface built with Gradio
+- REST API backend with FastAPI
 
-- **Dynamic Resume Analysis**  
-  Upload any resume to generate personalized interview questions.
+## Tech Stack
 
-- **Customizable Questions**  
-  Upload your own custom interview questions.
+| Component | Technology |
+|-----------|------------|
+| LLM Orchestration | LangGraph, LangChain |
+| Speech-to-Text | Deepgram (primary), Google Speech Recognition (fallback) |
+| Text-to-Speech | Edge TTS (primary), gTTS (fallback) |
+| Vector Store | ChromaDB |
+| Backend | FastAPI |
+| Frontend | Gradio |
+| PDF Generation | ReportLab |
+| Database | PostgreSQL with SQLAlchemy |
 
-- **Voice Interaction**  
-  Speak with the AI interviewer using:
-  - **STT**: faster-whisper (local) with Google Speech Recognition fallback
-  - **TTS**: Edge TTS (high quality) with gTTS fallback
+## Installation
 
-- **Automatic Evaluation**  
-  Get detailed scoring and structured feedback on interview performance.
-
-- **Report Generation**  
-  Generate comprehensive HR reports with candidate assessment.
-
-- **PDF Export**  
-  Download professional, formatted PDF interview reports.
-
-- **REST API**  
-  FastAPI backend with comprehensive endpoints for frontend integration.
-
----
-
-## 🧩 Components
-
-- **LangGraph Workflow**  
-  Multi-stage interview process with evaluation and reporting.
-
-- **Speech-to-Text (STT)**
-  - Primary: faster-whisper with model caching
-  - Fallback: Google Speech Recognition
-
-- **Text-to-Speech (TTS)**  
-  - Primary: Edge TTS (Microsoft, high quality voices)
-  - Fallback: gTTS (Google Text-to-Speech)
-
-- **Vector Search**  
-  Dynamic resume and question analysis using embeddings (ChromaDB).
-
-- **PDF Generation**  
-  Professional report formatting and export using ReportLab.
-
----
-
-## 📦 Installation
-
-### Clone the repository
 ```bash
+# Clone the repository
 git clone https://github.com/Sudip-8345/Lang-Interview.git
 cd Lang-Interview
-```
 
-### Create virtual environment
-```bash
+# Create virtual environment
 python -m venv myenv
 myenv\Scripts\activate  # Windows
 # source myenv/bin/activate  # Linux/Mac
-```
 
-### Install dependencies
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### Configure environment
-```bash
+# Configure environment
 cp .env.example .env
 # Edit .env with your API keys
 ```
 
----
+## Running the Application
 
-## 🚀 Running the Backend
-
-### Start the FastAPI server
+### Gradio Web Interface
 ```bash
-python main.py
+python app.py
 ```
+Opens at http://localhost:7860
 
-Or with uvicorn directly:
+### FastAPI Backend (optional)
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+API docs at http://localhost:8000/docs
 
-The API will be available at `http://localhost:8000`
+## Configuration
 
-API Documentation: `http://localhost:8000/docs`
+Key environment variables:
 
----
+| Variable | Description |
+|----------|-------------|
+| OPENROUTER_API_KEY | Primary LLM provider |
+| GROQ_API_KEY | Fallback LLM |
+| GOOGLE_API_KEY | Fallback LLM |
+| DEEPGRAM_API_KEY | Speech-to-text |
+| TTS_VOICE | Edge TTS voice (default: en-IN-NeerjaNeural) |
+| DEFAULT_MODE | Interview style: friendly, professional, challenging |
+| DEFAULT_NUM_QUESTIONS | Number of technical questions |
 
-## 📡 API Endpoints
+## Project Structure
 
-### Health & Info
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Root info |
-| GET | `/health` | Health check |
-| GET | `/voices` | List available TTS voices |
+```
+LangInterview/
+├── app.py                 # Gradio web interface
+├── main.py                # FastAPI backend
+├── src/
+│   ├── agents.py          # LangGraph agents (recruiter, evaluator, report writer)
+│   ├── orchastrate.py     # Interview session management
+│   ├── prompts.py         # System prompts for AI behavior
+│   ├── tools.py           # RAG tools for resume/JD retrieval
+│   └── llm.py             # LLM configuration with fallbacks
+├── utils/
+│   ├── stt.py             # Speech-to-text (Deepgram + Google)
+│   ├── tts.py             # Text-to-speech (Edge TTS + gTTS)
+│   ├── audio.py           # Audio processing utilities
+│   └── config.py          # Settings management
+├── services/
+│   └── interview_service.py  # Business logic layer
+├── db/                    # Database models and CRUD
+└── RAG_engine/            # Document indexing and retrieval
+```
 
-### Document Upload
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/upload/jd` | Upload Job Description PDF |
-| POST | `/upload/resume` | Upload Resume PDF |
+## How It Works
 
-### Interview Session
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/session/create` | Create new interview session |
-| GET | `/session/{id}/status` | Get session status |
-| DELETE | `/session/{id}` | Delete session |
-| POST | `/interview/start` | Start interview |
-| POST | `/interview/chat` | Send text message |
-| POST | `/interview/chat-with-audio` | Send text, get text+audio response |
-| GET | `/interview/{id}/evaluation` | Get evaluation and report |
+1. Upload job description and resume (PDF or text)
+2. Documents are indexed into ChromaDB vector stores
+3. Click Start Interview - AI greets and asks for introduction
+4. Speak or type responses; AI asks follow-up questions
+5. After all questions, AI ends with feedback and encouragement
+6. Evaluation runs automatically, scoring responses
+7. HR report generated as downloadable PDF
 
-### Voice
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/stt/transcribe` | Transcribe audio to text |
-| POST | `/tts/synthesize` | Convert text to speech |
-| POST | `/interview/voice` | Full voice interview (STT→LLM→TTS) |
-| GET | `/audio/{id}` | Get saved audio file |
+## API Endpoints
 
-### Quick Start
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/quick-start` | Upload docs, create session, start interview in one call |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /session/create | POST | Create interview session |
+| /interview/start | POST | Begin interview |
+| /interview/chat | POST | Send message, get response |
+| /interview/voice | POST | Full voice interaction (STT to TTS) |
+| /stt/transcribe | POST | Convert audio to text |
+| /tts/synthesize | POST | Convert text to audio |
 
----
+## Challenges Faced
 
-## 🧠 Interview Process
+- **STT Latency**: Initial implementation using local Whisper was slow. Switched to Deepgram async API for faster transcription, but required careful handling of SDK v5 breaking changes.
 
-### Setup
-Configure interview parameters and upload resume/questions.
+- **LLM Tool Leakage**: The AI would sometimes include raw function call syntax in spoken responses. Solved with regex-based cleanup and explicit prompt instructions.
 
-### Introduction
-AI introduces itself and asks the candidate to introduce themselves.
+- **Interview Flow Control**: Getting the AI to follow a structured interview format (intro first, then questions, then ending) required iterative prompt engineering. The model often jumped ahead or combined multiple questions.
 
-### Resume-Based Questions
-AI asks questions related to specific projects and experiences from the resume.
+- **Empty Response Handling**: When the workflow transitions to evaluation/report generation, the final AI message is just tool output. Added fallback messages to provide a proper conversational ending.
 
-### Technical Questions
-Role-specific technical questions are asked.
+- **Gradio API Changes**: Gradio v6 changed the Chatbot component format from tuples to message dictionaries, requiring refactoring of all chat history handling.
 
-### Follow-up Questions
-AI asks follow-up questions for incomplete or unclear answers.
+## License
 
-### Evaluation
-Candidate responses are evaluated after the interview.
-
-### Report Generation
-AI generates a comprehensive HR assessment report.
-
-### PDF Export
-Download the report as a professional PDF.
-
----
-
-## ⚙️ Configuration Options
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OPENROUTER_API_KEY` | OpenRouter API key (primary LLM) | - |
-| `GROQ_API_KEY` | Groq API key (fallback LLM) | - |
-| `GOOGLE_API_KEY` | Google API key (fallback LLM) | - |
-| `TTS_VOICE` | Edge TTS voice ID | `en-IN-NeerjaNeural` |
-| `STT_WHISPER_MODEL` | Whisper model size (tiny/base/small/medium/large) | `base` |
-| `DEFAULT_MODE` | Interview mode (friendly/formal/technical) | `friendly` |
-| `DEFAULT_NUM_QUESTIONS` | Number of questions | `3` |
-
-See `.env.example` for all options.
-
----
-
-## 🔐 API Keys
-
-This project integrates the following external APIs:
-
-- **OpenRouter / Groq / Google** – LLM providers (at least one required)
-- **Edge TTS** – High-quality Microsoft voices (free, no API key)
-- **gTTS** – Google Text-to-Speech fallback (free, no API key)
-- **faster-whisper** – Local speech recognition (free, no API key)
-
----
-
-## 🛠 Requirements
-
-- Python 3.10+
-- FastAPI
-- LangGraph & LangChain
-- faster-whisper (STT)
-- edge-tts & gTTS (TTS)
-- ChromaDB (Vector Store)
-- ReportLab (PDF generation)
-- AssemblyAI (for cloud voice processing)
-- ElevenLabs (for text-to-speech)
-- FPDF (for PDF generation)
+MIT

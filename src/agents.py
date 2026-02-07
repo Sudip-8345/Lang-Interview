@@ -40,8 +40,8 @@ def create_recruiter_agent(tools: List):
         all_messages = [sys_prompt] + list(state['messages'])
         result = llm.bind_tools(tools).invoke(all_messages)
         
-        # If the model made tool calls but returned empty content, execute tools and get response
-        if hasattr(result, 'tool_calls') and result.tool_calls and not result.content:
+        # If the model made tool calls, execute tools and get a clean response
+        if hasattr(result, 'tool_calls') and result.tool_calls:
             tool_node = ToolNode(tools)
             tool_results = tool_node.invoke({"messages": [result]})
             
@@ -127,7 +127,13 @@ END_PHRASES = [
     "end of the interview",
     "interview is complete",
     "we're done",
-    "that concludes"
+    "that concludes",
+    "we'll be in touch",
+    "best of luck",
+    "good luck",
+    "great talking with you",
+    "enjoyed learning about",
+    "enjoyed our conversation"
 ]
 
 def is_interview_ended(content: str) -> bool:
