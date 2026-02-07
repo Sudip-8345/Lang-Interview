@@ -3,6 +3,7 @@ python-dotenv
 scipy
 pydantic
 gradio
+huggingface_hub
 
 # LangChain
 langchain
