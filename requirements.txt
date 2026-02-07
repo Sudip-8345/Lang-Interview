@@ -1,19 +1,10 @@
-# Core dependencies
+# Core
 python-dotenv
 scipy
 pydantic
+gradio
 
-# Web framework
-fastapi
-uvicorn[standard]
-python-multipart
-
-# Database
-sqlalchemy[asyncio]
-asyncpg
-psycopg2-binary
-
-# LangChain and LangGraph dependencies
+# LangChain
 langchain
 langchain_google_genai
 langchain_openai
@@ -23,36 +14,25 @@ langchain-core
 langchain-text-splitters
 langgraph
 
-# Google AI/Cloud dependencies
+# AI
 google-genai
 google-generativeai
-
-# Vector stores
 langchain-chroma
 chromadb
 
 # Document processing
 pypdf
 
-# TTS - Edge TTS (primary) and gTTS (fallback)
+# TTS/STT
 edge-tts
 gtts
-
-# STT - Deepgram (primary) and SpeechRecognition (fallback)
 deepgram-sdk
 SpeechRecognition
 
-# Audio processing
+# Audio
 soundfile
 pydub
 numpy
 
-# PDF generation
+# PDF
 reportlab
-
-# Visualization (optional)
-graphviz
-ipython
-
-# Gradio web UI
-gradio

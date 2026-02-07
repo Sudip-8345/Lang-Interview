@@ -50,7 +50,7 @@ async def transcribe_with_deepgram(audio_data: bytes) -> tuple:
     response = await client.listen.v1.media.transcribe_file(
         request=audio_data,
         model="nova-2",
-        smart_format=False,  # Disable for speed
+        smart_format=False,  
         punctuate=True,
         language="en"
     )
@@ -79,7 +79,17 @@ async def transcribe_with_google(audio_path: str) -> str:
 
 async def transcribe(audio_data: bytes, format_hint: str = None) -> str:
     
-    # Try Deepgram first
+    temp_path = None
+    try:
+        temp_path = await save_to_temp_wav(audio_data, format_hint)
+        text = await transcribe_with_google(temp_path)
+        logger.info(f"Google STT: '{text[:50]}...'")
+        return text
+        
+    except Exception as e:
+        logger.warning(f"Google STT failed: {e}, trying Deepgram fallback...")
+        
+    # try fallback to deepgram    
     try:
         text, confidence = await transcribe_with_deepgram(audio_data)
         
@@ -93,22 +103,7 @@ async def transcribe(audio_data: bytes, format_hint: str = None) -> str:
             return text
             
     except Exception as e:
-        logger.warning(f"Deepgram failed: {e}, trying Google fallback...")
-    
-    # Fallback to Google (needs temp WAV file)
-    temp_path = None
-    try:
-        temp_path = await save_to_temp_wav(audio_data, format_hint)
-        text = await transcribe_with_google(temp_path)
-        logger.info(f"Google STT: '{text[:50]}...'")
-        return text
-        
-    except Exception as e:
-        logger.error(f"All STT engines failed: {e}")
-        raise RuntimeError(f"Transcription failed: {e}")
-        
-    finally:
-        cleanup_temp_file(temp_path)
+        logger.error(f"Deepgram transcription failed: {e}")
 
 
 # Convenience alias for backward compatibility
