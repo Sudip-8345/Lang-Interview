@@ -338,7 +338,7 @@ async def start_interview(session_state: dict) -> Tuple[str, List, str, dict, gr
 async def process_audio_response(
     audio_input,
     session_state: dict
-) -> Tuple[str, List, str, str, dict]:
+) -> Tuple[str, List, str, str, dict, gr.update, gr.update]:
     """Process user's audio response and get AI reply"""
     
     workflow = session_state.get("workflow")
@@ -348,7 +348,9 @@ async def process_audio_response(
             session_state.get("chat_history", []),
             None,
             "",
-            session_state
+            session_state,
+            gr.update(),
+            gr.update()
         )
     
     if audio_input is None:
@@ -362,7 +364,9 @@ async def process_audio_response(
             session_state.get("chat_history", []),
             None,
             "",
-            session_state
+            session_state,
+            gr.update(),
+            gr.update()
         )
     
     try:
@@ -376,7 +380,9 @@ async def process_audio_response(
                 session_state.get("chat_history", []),
                 None,
                 "",
-                session_state
+                session_state,
+                gr.update(),
+                gr.update()
             )
         
         logger.info(f"Audio bytes size: {len(audio_bytes)}")
@@ -390,7 +396,9 @@ async def process_audio_response(
                 session_state.get("chat_history", []),
                 None,
                 "",
-                session_state
+                session_state,
+                gr.update(),
+                gr.update()
             )
         
         if not transcript.strip():
@@ -399,20 +407,36 @@ async def process_audio_response(
                 session_state.get("chat_history", []),
                 None,
                 "",
-                session_state
+                session_state,
+                gr.update(),
+                gr.update()
             )
         
         logger.info(f"Transcribed: {transcript[:50]}...")
         
         # Get AI response
-        response = clean_ai_response(workflow.send_message(transcript))
+        raw_response = workflow.send_message(transcript)
+        response = clean_ai_response(raw_response)
         is_complete = workflow.is_interview_complete()
         
-        # If response is empty (e.g., only tool output), provide a default ending
+        # If response is empty but interview completed, use the recruiter's farewell
         if not response.strip() and is_complete:
-            response = "That wraps up our interview for today! It was great talking with you. Keep building on your skills, you're doing great. Best of luck, and we'll be in touch soon!"
+            farewell = clean_ai_response(workflow.get_recruiter_farewell())
+            if farewell.strip():
+                response = farewell
+            else:
+                response = "That wraps up our interview for today! It was great talking with you. Keep building on your skills, you're doing great. Best of luck, and we'll be in touch soon!"
         elif not response.strip():
-            response = "I understand. Let me continue with the next question."
+            # Check again - maybe it just completed with this response
+            if workflow.is_interview_complete():
+                is_complete = True
+                farewell = clean_ai_response(workflow.get_recruiter_farewell())
+                if farewell.strip():
+                    response = farewell
+                else:
+                    response = "That wraps up our interview for today! It was great talking with you. Keep building on your skills, you're doing great. Best of luck, and we'll be in touch soon!"
+            else:
+                response = "That's a good point. Let me ask you about something else."
         
         # Generate TTS
         audio_bytes = await tts_synthesize(response)
@@ -463,7 +487,7 @@ async def process_audio_response(
 async def process_text_response(
     text_input: str,
     session_state: dict
-) -> Tuple[str, List, str, dict]:
+) -> Tuple[str, List, str, dict, gr.update, gr.update]:
     """Process user's text response and get AI reply"""
     
     workflow = session_state.get("workflow")
@@ -472,7 +496,9 @@ async def process_text_response(
             "⚠️ Interview not active. Please start the interview first.",
             session_state.get("chat_history", []),
             None,
-            session_state
+            session_state,
+            gr.update(),
+            gr.update()
         )
     
     if not text_input.strip():
@@ -480,19 +506,35 @@ async def process_text_response(
             "⚠️ Please enter a response.",
             session_state.get("chat_history", []),
             None,
-            session_state
+            session_state,
+            gr.update(),
+            gr.update()
         )
     
     try:
         # Get AI response
-        response = clean_ai_response(workflow.send_message(text_input))
+        raw_response = workflow.send_message(text_input)
+        response = clean_ai_response(raw_response)
         is_complete = workflow.is_interview_complete()
         
-        # If response is empty (e.g., only tool output), provide a default ending
+        # If response is empty but interview completed, use the recruiter's farewell
         if not response.strip() and is_complete:
-            response = "That wraps up our interview for today! It was great talking with you. Keep building on your skills, you're doing great. Best of luck, and we'll be in touch soon!"
+            farewell = clean_ai_response(workflow.get_recruiter_farewell())
+            if farewell.strip():
+                response = farewell
+            else:
+                response = "That wraps up our interview for today! It was great talking with you. Keep building on your skills, you're doing great. Best of luck, and we'll be in touch soon!"
         elif not response.strip():
-            response = "I understand. Let me continue with the next question."
+            # Check again - maybe it just completed with this response
+            if workflow.is_interview_complete():
+                is_complete = True
+                farewell = clean_ai_response(workflow.get_recruiter_farewell())
+                if farewell.strip():
+                    response = farewell
+                else:
+                    response = "That wraps up our interview for today! It was great talking with you. Keep building on your skills, you're doing great. Best of luck, and we'll be in touch soon!"
+            else:
+                response = "That's a good point. Let me ask you about something else."
         
         # Generate TTS
         audio_bytes = await tts_synthesize(response)
@@ -520,7 +562,14 @@ async def process_text_response(
         else:
             status = "🎙️ **Your turn** - Record or type your response"
         
-        return (status, chat_history, audio_path, session_state)
+        return (
+            status,
+            chat_history,
+            audio_path,
+            session_state,
+            gr.update(interactive=False) if is_complete else gr.update(),
+            gr.update(interactive=False) if is_complete else gr.update()
+        )
         
     except Exception as e:
         logger.error(f"Process text failed: {e}")
@@ -528,7 +577,9 @@ async def process_text_response(
             f"Error: {str(e)}",
             session_state.get("chat_history", []),
             None,
-            session_state
+            session_state,
+            gr.update(),
+            gr.update()
         )
 
 
@@ -872,7 +923,7 @@ def create_app():
         send_audio_btn.click(
             fn=process_audio_response,
             inputs=[audio_input, session_state],
-            outputs=[status_display, chatbot, audio_output, transcription_box, session_state],
+            outputs=[status_display, chatbot, audio_output, transcription_box, session_state, start_btn, end_btn],
             api_name=False
         ).then(
             fn=lambda: None,
@@ -885,7 +936,7 @@ def create_app():
         audio_input.stop_recording(
             fn=process_audio_response,
             inputs=[audio_input, session_state],
-            outputs=[status_display, chatbot, audio_output, transcription_box, session_state],
+            outputs=[status_display, chatbot, audio_output, transcription_box, session_state, start_btn, end_btn],
             api_name=False
         ).then(
             fn=lambda: None,
@@ -898,7 +949,7 @@ def create_app():
         send_text_btn.click(
             fn=process_text_response,
             inputs=[text_input, session_state],
-            outputs=[status_display, chatbot, audio_output, session_state],
+            outputs=[status_display, chatbot, audio_output, session_state, start_btn, end_btn],
             api_name=False
         ).then(
             fn=lambda: "",

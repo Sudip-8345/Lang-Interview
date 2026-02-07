@@ -141,28 +141,66 @@ class InterviewSession:
         if not self.current_state or not self.current_state.get("messages"):
             return False
         
-        last_msg = self.current_state["messages"][-1]
-        if isinstance(last_msg, AIMessage):
-            # Check for various end phrases
-            end_phrases = [
-                "that's it for today",
-                "thank you for your time",
-                "thank you for joining",
-                "this concludes",
-                "end of the interview",
-                "interview is complete",
-                "we're done",
-                "that concludes",
-                "we'll be in touch",
-                "best of luck",
-                "good luck",
-                "great talking with you",
-                "enjoyed learning about",
-                "enjoyed our conversation"
-            ]
-            content_lower = last_msg.content.lower()
-            return any(phrase in content_lower for phrase in end_phrases)
+        # Check if evaluation or HR report was generated (definitive completion)
+        if self.current_state.get("evaluation_result"):
+            return True
+        if self.current_state.get("hr_report"):
+            return True
+        
+        # Check recent AI messages for end phrases (not just the very last)
+        messages = self.current_state["messages"]
+        end_phrases = [
+            "that's it for today",
+            "thank you for your time",
+            "thank you for joining",
+            "this concludes",
+            "end of the interview",
+            "interview is complete",
+            "we're done",
+            "that concludes",
+            "we'll be in touch",
+            "best of luck",
+            "good luck",
+            "great talking with you",
+            "enjoyed learning about",
+            "enjoyed our conversation",
+            "wraps up our interview",
+            "that's all for today",
+            "end of our session",
+            "take care"
+        ]
+        
+        # Check last 5 AI messages (the farewell might not be the very last)
+        ai_messages = [m for m in messages if isinstance(m, AIMessage)]
+        for msg in ai_messages[-5:]:
+            content_lower = msg.content.lower()
+            if any(phrase in content_lower for phrase in end_phrases):
+                return True
+        
         return False
+    
+    def get_recruiter_farewell(self) -> str:
+        """Get the recruiter's farewell message from the conversation."""
+        if not self.current_state or not self.current_state.get("messages"):
+            return ""
+        
+        end_phrases = [
+            "that's it for today", "thank you for your time",
+            "this concludes", "we'll be in touch", "best of luck",
+            "good luck", "great talking with you", "wraps up",
+            "take care", "enjoyed"
+        ]
+        
+        messages = self.current_state["messages"]
+        ai_messages = [m for m in messages if isinstance(m, AIMessage)]
+        
+        # Search from the end backwards for the farewell message
+        for msg in reversed(ai_messages[-10:]):
+            content_lower = msg.content.lower()
+            if any(phrase in content_lower for phrase in end_phrases):
+                return msg.content
+        
+        return ""
     
     def get_evaluation(self) -> Optional[str]:
         return self.current_state.get("evaluation_result") if self.current_state else None
