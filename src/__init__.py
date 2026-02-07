@@ -1,4 +1,4 @@
-from src.llm import llm, evallm, get_llm
+from src.llm import get_llm, get_default_llm, get_eval_llm
 from src.prompts import interviewer_prompt, evaluator_prompt, report_writer_prompt
 from src.tools import create_jd_tool, create_resume_tool, save_report_as_pdf, report_writer_tools
 from src.agents import (
@@ -22,9 +22,9 @@ from RAG_engine.retriever import (
 
 __all__ = [
     # LLM
-    "llm",
-    "evallm", 
     "get_llm",
+    "get_default_llm", 
+    "get_eval_llm",
     # Prompts
     "interviewer_prompt",
     "evaluator_prompt",

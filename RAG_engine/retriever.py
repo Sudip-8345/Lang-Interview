@@ -1,27 +1,58 @@
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from os import getenv
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Lazy imports to avoid API validation at module load time
+_OpenAIEmbeddings = None
+_GoogleGenerativeAIEmbeddings = None
+
+
+def _import_embeddings():
+    """Import embedding classes lazily to avoid import-time API validation"""
+    global _OpenAIEmbeddings, _GoogleGenerativeAIEmbeddings
+    if _OpenAIEmbeddings is None:
+        try:
+            from langchain_openai import OpenAIEmbeddings
+            _OpenAIEmbeddings = OpenAIEmbeddings
+        except Exception as e:
+            logger.warning(f"Failed to import OpenAIEmbeddings: {e}")
+    if _GoogleGenerativeAIEmbeddings is None:
+        try:
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            _GoogleGenerativeAIEmbeddings = GoogleGenerativeAIEmbeddings
+        except Exception as e:
+            logger.warning(f"Failed to import GoogleGenerativeAIEmbeddings: {e}")
+
 
 def get_embedding_model():
-    try:
-        embedding = OpenAIEmbeddings(
-            model="text-embedding-3-small",
-            api_key=getenv("OPENROUTER_API_KEY"),
-            base_url="https://openrouter.ai/api/v1"
-        )
-        logger.info("Initialized OpenAI Embeddings via OpenRouter.")
-        return embedding
-    except Exception as e:
-        logger.warning(f"OpenAI Embeddings failed: {e}. Falling back to Google.")
-        return GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-001",
-            api_key=getenv("GOOGLE_API_KEY")
-        )
+    _import_embeddings()
+    
+    # Try OpenAI via OpenRouter first
+    if _OpenAIEmbeddings and getenv("OPENROUTER_API_KEY"):
+        try:
+            embedding = _OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                api_key=getenv("OPENROUTER_API_KEY"),
+                base_url="https://openrouter.ai/api/v1"
+            )
+            logger.info("Initialized OpenAI Embeddings via OpenRouter.")
+            return embedding
+        except Exception as e:
+            logger.warning(f"OpenAI Embeddings failed: {e}. Falling back to Google.")
+    
+    # Fallback to Google
+    if _GoogleGenerativeAIEmbeddings and getenv("GOOGLE_API_KEY"):
+        try:
+            return _GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-001",
+                api_key=getenv("GOOGLE_API_KEY")
+            )
+        except Exception as e:
+            logger.error(f"Google Embeddings also failed: {e}")
+    
+    raise RuntimeError("No embedding model available. Please set OPENROUTER_API_KEY or GOOGLE_API_KEY.")
 
 
 def create_vectorstores(jd_chunks, resume_chunks, 
