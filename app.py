@@ -177,7 +177,7 @@ async def setup_interview(
     num_questions: int,
     num_followup: int,
     session_state: dict
-) -> Tuple[str, List, dict, gr.update, gr.update]:
+) -> Tuple[str, List, dict, gr.update]:
     """Initialize interview session with uploaded documents"""
     
     # Check if imports failed due to missing API keys
@@ -189,8 +189,7 @@ async def setup_interview(
             f"Please add these as Secrets in your HuggingFace Space settings.",
             [],
             session_state,
-            gr.update(interactive=False),
-            gr.update(visible=False)
+            gr.update(interactive=False)
         )
     
     if jd_file is None or resume_file is None:
@@ -198,8 +197,7 @@ async def setup_interview(
             "⚠️ Please upload both JD and Resume files",
             [],
             session_state,
-            gr.update(interactive=False),
-            gr.update(visible=False)
+            gr.update(interactive=False)
         )
     
     try:
@@ -248,8 +246,7 @@ async def setup_interview(
             f"❓ **Questions:** {num_questions} (+ {num_followup} follow-ups each)",
             [],
             session_state,
-            gr.update(interactive=True, variant="primary"),
-            gr.update(visible=True)
+            gr.update(interactive=True, variant="primary")
         )
         
     except Exception as e:
@@ -258,8 +255,7 @@ async def setup_interview(
             f"❌ Setup failed: {str(e)}",
             [],
             session_state,
-            gr.update(interactive=False),
-            gr.update(visible=False)
+            gr.update(interactive=False)
         )
 
 
@@ -822,50 +818,58 @@ def create_app():
                 jd_file, resume_file, company_name, position,
                 mode, num_questions, num_followup, session_state
             ],
-            outputs=[setup_status, chatbot, session_state, start_btn, gr.State()]
+            outputs=[setup_status, chatbot, session_state, start_btn],
+            api_name=False
         )
         
         # Start interview
         start_btn.click(
             fn=start_interview,
             inputs=[session_state],
-            outputs=[status_display, chatbot, audio_output, session_state, start_btn, end_btn]
+            outputs=[status_display, chatbot, audio_output, session_state, start_btn, end_btn],
+            api_name=False
         )
         
         # Send audio response
         send_audio_btn.click(
             fn=process_audio_response,
             inputs=[audio_input, session_state],
-            outputs=[status_display, chatbot, audio_output, transcription_box, session_state]
+            outputs=[status_display, chatbot, audio_output, transcription_box, session_state],
+            api_name=False
         ).then(
             fn=lambda: None,
             inputs=None,
-            outputs=audio_input
+            outputs=audio_input,
+            api_name=False
         )
         
         # Send text response
         send_text_btn.click(
             fn=process_text_response,
             inputs=[text_input, session_state],
-            outputs=[status_display, chatbot, audio_output, session_state]
+            outputs=[status_display, chatbot, audio_output, session_state],
+            api_name=False
         ).then(
             fn=lambda: "",
             inputs=None,
-            outputs=text_input
+            outputs=text_input,
+            api_name=False
         )
         
         # End interview
         end_btn.click(
             fn=end_interview,
             inputs=[session_state],
-            outputs=[status_display, session_state, start_btn, end_btn]
+            outputs=[status_display, session_state, start_btn, end_btn],
+            api_name=False
         )
         
         # View results
         view_results_btn.click(
             fn=get_evaluation_results,
             inputs=[session_state],
-            outputs=[evaluation_box, hr_report_box, transcript_box]
+            outputs=[evaluation_box, hr_report_box, transcript_box],
+            api_name=False
         )
         
         # Timer update (every 1 second when active)
@@ -873,7 +877,8 @@ def create_app():
         timer_update.tick(
             fn=lambda s: f"**⏱️ Duration:** {get_timer_display(s)}",
             inputs=[session_state],
-            outputs=[timer_display]
+            outputs=[timer_display],
+            api_name=False
         )
     
     return app
@@ -881,17 +886,19 @@ def create_app():
 
 # ==================== Main Entry ====================
 
+# Ensure directories exist
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("voice_outputs", exist_ok=True)
+
+# Create app at module level for HF Spaces
+demo = create_app()
+
 if __name__ == "__main__":
     logger.info("Starting Gradio AI Interview App...")
-    
-    # Ensure directories exist
-    os.makedirs("uploads", exist_ok=True)
-    os.makedirs("voice_outputs", exist_ok=True)
-    
-    app = create_app()
-    app.launch(
+    demo.launch(
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        show_error=True
+        show_error=True,
+        show_api=False
     )
