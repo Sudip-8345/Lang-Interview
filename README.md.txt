@@ -1,5 +1,7 @@
 # LangInterview AI
 
+**Live Demo:** [https://huggingface.co/spaces/tagc23/AskAI.hr](https://huggingface.co/spaces/tagc23/AskAI.hr)
+
 An AI-powered interview platform that simulates real-world technical interviews using voice and text. Built with LangGraph and LangChain, it analyzes resumes, asks personalized questions, evaluates responses, and generates professional HR reports.
 
 ## What It Does
@@ -120,6 +122,27 @@ LangInterview/
 | /interview/voice | POST | Full voice interaction (STT to TTS) |
 | /stt/transcribe | POST | Convert audio to text |
 | /tts/synthesize | POST | Convert text to audio |
+
+## Deployment (Hugging Face Spaces)
+
+The app is deployed on Hugging Face Spaces using the Gradio SDK.
+
+1. Create a new Space on [huggingface.co/new-space](https://huggingface.co/new-space) with SDK set to **Gradio**
+2. Add a `space` remote:
+   ```bash
+   git remote add space https://huggingface.co/spaces/<your-username>/<your-space>
+   ```
+3. Add your API keys as **Secrets** in the Space settings:
+   - `GROQ_API_KEY`
+   - `GOOGLE_API_KEY`
+   - `OPENROUTER_API_KEY`
+   - `DEEPGRAM_API_KEY`
+4. Push to deploy:
+   ```bash
+   git push space main
+   ```
+
+The Space reads `requirements.txt` for Python dependencies and `packages.txt` for system packages (e.g., ffmpeg).
 
 ## Challenges Faced
 
