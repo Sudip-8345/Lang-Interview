@@ -6,7 +6,7 @@ from langgraph.graph.message import add_messages
 from operator import add
 
 from src.prompts import interviewer_prompt, evaluator_prompt, report_writer_prompt
-from src.llm import llm, evallm
+from src.llm import get_default_llm, get_eval_llm
 from src.tools import create_jd_tool, create_resume_tool, save_report_as_pdf, report_writer_tools
 from utils.logger import get_logger
 
@@ -38,6 +38,7 @@ def create_recruiter_agent(tools: List):
             number_of_follow_up=state['num_of_follow_up']
         ))
         all_messages = [sys_prompt] + list(state['messages'])
+        llm = get_default_llm()
         result = llm.bind_tools(tools).invoke(all_messages)
         
         # If the model made tool calls, execute tools and get a clean response
@@ -75,6 +76,7 @@ def create_evaluator_agent(jd_tool):
                 interview_base.append('Interviewer: ' + str(msg.content))
         
         all_messages = [sys_msg, HumanMessage(content='\n'.join(interview_base))]
+        evallm = get_eval_llm()
         evallm_with_tools = evallm.bind_tools([jd_tool])
         results = evallm_with_tools.invoke(all_messages)
         
@@ -112,6 +114,7 @@ def report_writer(state: AgentState) -> AgentState:
     )
     sys_message = SystemMessage(content=sys_prompt)
     all_messages = [sys_message, HumanMessage(content='Generate the report now.')]
+    llm = get_default_llm()
     result = llm.bind_tools(report_writer_tools).invoke(all_messages)
     
     return {"messages": [result], "hr_report": result.content}
