@@ -2,8 +2,7 @@
 python-dotenv
 scipy
 pydantic
-gradio==4.44.0
-huggingface_hub==0.24.7
+# gradio and huggingface_hub installed by HF Spaces
 
 # LangChain
 langchain

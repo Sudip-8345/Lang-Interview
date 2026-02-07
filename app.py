@@ -67,7 +67,6 @@ def clean_ai_response(text: str) -> str:
 
 
 def numpy_to_bytes(audio_tuple: Tuple[int, np.ndarray]) -> bytes:
-    """Convert Gradio audio tuple to bytes for STT"""
     import io
     import soundfile as sf
     
