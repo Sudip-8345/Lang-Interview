@@ -352,8 +352,13 @@ async def process_audio_response(
         )
     
     if audio_input is None:
+        logger.warning("audio_input is None - microphone may not have captured audio")
         return (
-            "⚠️ No audio detected. Please record your response.",
+            "⚠️ No audio detected. Please ensure:\n"
+            "1. You clicked the **microphone icon** to start recording\n"
+            "2. You clicked it again to **stop** recording\n"
+            "3. You allowed **microphone access** in your browser\n\n"
+            "💡 **Alternative:** Use the **Text Input** box below to type your response.",
             session_state.get("chat_history", []),
             None,
             "",
@@ -730,9 +735,9 @@ def create_app():
                         # Audio input
                         gr.Markdown("### 🎤 Voice Input")
                         audio_input = gr.Audio(
-                            sources=["microphone"],
+                            sources=["microphone", "upload"],
                             type="filepath",
-                            label="Record Response",
+                            label="Record or Upload Response",
                             elem_classes=["audio-controls"]
                         )
                         send_audio_btn = gr.Button(
@@ -863,8 +868,21 @@ def create_app():
             api_name=False
         )
         
-        # Send audio response
+        # Send audio response (button click)
         send_audio_btn.click(
+            fn=process_audio_response,
+            inputs=[audio_input, session_state],
+            outputs=[status_display, chatbot, audio_output, transcription_box, session_state],
+            api_name=False
+        ).then(
+            fn=lambda: None,
+            inputs=None,
+            outputs=audio_input,
+            api_name=False
+        )
+        
+        # Auto-process when recording stops
+        audio_input.stop_recording(
             fn=process_audio_response,
             inputs=[audio_input, session_state],
             outputs=[status_display, chatbot, audio_output, transcription_box, session_state],
