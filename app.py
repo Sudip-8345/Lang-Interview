@@ -88,32 +88,52 @@ def clean_ai_response(text: str) -> str:
     return text
 
 
-def numpy_to_bytes(audio_tuple: Tuple[int, np.ndarray]) -> bytes:
+def audio_input_to_bytes(audio_input) -> bytes:
+    """Convert Gradio audio input to WAV bytes.
+    Handles both numpy tuple (sr, array) and filepath string formats."""
     import io
     import soundfile as sf
     
-    if audio_tuple is None:
+    if audio_input is None:
         return None
     
-    sample_rate, audio_data = audio_tuple
+    # Gradio 5.x on Spaces may return a filepath string
+    if isinstance(audio_input, str):
+        logger.info(f"Audio input is filepath: {audio_input}")
+        try:
+            with open(audio_input, "rb") as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Failed to read audio file {audio_input}: {e}")
+            return None
     
-    # Normalize audio data
-    if audio_data.dtype == np.int16:
-        audio_data = audio_data.astype(np.float32) / 32768.0
-    elif audio_data.dtype == np.int32:
-        audio_data = audio_data.astype(np.float32) / 2147483648.0
-    elif audio_data.dtype == np.uint8:
-        audio_data = (audio_data.astype(np.float32) - 128) / 128.0
+    # Tuple format: (sample_rate, numpy_array)
+    if isinstance(audio_input, (tuple, list)) and len(audio_input) == 2:
+        sample_rate, audio_data = audio_input
+        logger.info(f"Audio input is numpy tuple: sr={sample_rate}, shape={getattr(audio_data, 'shape', 'unknown')}, dtype={getattr(audio_data, 'dtype', 'unknown')}")
+        
+        # Handle numpy array
+        if isinstance(audio_data, np.ndarray):
+            # Normalize audio data
+            if audio_data.dtype == np.int16:
+                audio_data = audio_data.astype(np.float32) / 32768.0
+            elif audio_data.dtype == np.int32:
+                audio_data = audio_data.astype(np.float32) / 2147483648.0
+            elif audio_data.dtype == np.uint8:
+                audio_data = (audio_data.astype(np.float32) - 128) / 128.0
+            
+            # Convert to mono if stereo
+            if len(audio_data.shape) > 1:
+                audio_data = audio_data.mean(axis=1)
+            
+            # Write to bytes buffer
+            buffer = io.BytesIO()
+            sf.write(buffer, audio_data, sample_rate, format='WAV')
+            buffer.seek(0)
+            return buffer.read()
     
-    # Convert to mono if stereo
-    if len(audio_data.shape) > 1:
-        audio_data = audio_data.mean(axis=1)
-    
-    # Write to bytes buffer
-    buffer = io.BytesIO()
-    sf.write(buffer, audio_data, sample_rate, format='WAV')
-    buffer.seek(0)
-    return buffer.read()
+    logger.error(f"Unexpected audio input type: {type(audio_input)}")
+    return None
 
 
 def save_audio_to_temp_file(audio_bytes: bytes, suffix: str = ".mp3") -> str:
@@ -341,8 +361,20 @@ async def process_audio_response(
         )
     
     try:
-        # Convert audio to bytes
-        audio_bytes = numpy_to_bytes(audio_input)
+        # Convert audio to bytes (handles both numpy tuple and filepath)
+        audio_bytes = audio_input_to_bytes(audio_input)
+        
+        if audio_bytes is None or len(audio_bytes) == 0:
+            logger.warning(f"Audio conversion returned empty bytes. Input type: {type(audio_input)}")
+            return (
+                "⚠️ Could not process audio. Please try recording again.",
+                session_state.get("chat_history", []),
+                None,
+                "",
+                session_state
+            )
+        
+        logger.info(f"Audio bytes size: {len(audio_bytes)}")
         
         # Transcribe
         transcript = await stt_transcribe(audio_bytes)
@@ -699,7 +731,7 @@ def create_app():
                         gr.Markdown("### 🎤 Voice Input")
                         audio_input = gr.Audio(
                             sources=["microphone"],
-                            type="numpy",
+                            type="filepath",
                             label="Record Response",
                             elem_classes=["audio-controls"]
                         )

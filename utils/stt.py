@@ -46,14 +46,20 @@ def _get_async_deepgram_client():
 async def transcribe_with_deepgram(audio_data: bytes) -> tuple:
     client = _get_async_deepgram_client()
     
-    # Use SDK v5 async API for faster response
-    response = await client.listen.v1.media.transcribe_file(
-        request=audio_data,
+    from deepgram import PrerecordedOptions, FileSource
+    
+    payload: FileSource = {
+        "buffer": audio_data,
+    }
+    
+    options = PrerecordedOptions(
         model="nova-2",
-        smart_format=False,  
+        smart_format=False,
         punctuate=True,
-        language="en"
+        language="en",
     )
+    
+    response = await client.listen.rest.v("1").transcribe_file(payload, options)
     
     # Extract transcript and confidence
     result = response.results.channels[0].alternatives[0]
@@ -79,17 +85,13 @@ async def transcribe_with_google(audio_path: str) -> str:
 
 async def transcribe(audio_data: bytes, format_hint: str = None) -> str:
     
-    temp_path = None
-    try:
-        temp_path = await save_to_temp_wav(audio_data, format_hint)
-        text = await transcribe_with_google(temp_path)
-        logger.info(f"Google STT: '{text[:50]}...'")
-        return text
-        
-    except Exception as e:
-        logger.warning(f"Google STT failed: {e}, trying Deepgram fallback...")
-        
-    # try fallback to deepgram    
+    if not audio_data or len(audio_data) == 0:
+        logger.warning("Empty audio data received")
+        return ""
+    
+    logger.info(f"Transcribing audio: {len(audio_data)} bytes")
+    
+    # Try Deepgram first (faster, more reliable on cloud)
     try:
         text, confidence = await transcribe_with_deepgram(audio_data)
         
@@ -101,9 +103,28 @@ async def transcribe(audio_data: bytes, format_hint: str = None) -> str:
                 return "[LOW_CONFIDENCE]"
             
             return text
+        else:
+            logger.warning("Deepgram returned empty transcript")
             
     except Exception as e:
-        logger.error(f"Deepgram transcription failed: {e}")
+        logger.warning(f"Deepgram transcription failed: {e}")
+    
+    # Fallback to Google STT
+    temp_path = None
+    try:
+        temp_path = await save_to_temp_wav(audio_data, format_hint)
+        text = await transcribe_with_google(temp_path)
+        logger.info(f"Google STT: '{text[:50]}...'")
+        return text
+        
+    except Exception as e:
+        logger.error(f"Google STT also failed: {e}")
+    finally:
+        if temp_path:
+            cleanup_temp_file(temp_path)
+    
+    logger.error("All STT engines failed")
+    return ""
 
 
 # Convenience alias for backward compatibility
