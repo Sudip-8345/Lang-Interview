@@ -15,11 +15,33 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.config import settings
 from utils.logger import get_logger
-from utils.tts import synthesize as tts_synthesize
-from utils.stt import transcribe as stt_transcribe
-from src.orchastrate import InterviewSession
 
 logger = get_logger(__name__)
+
+# Check API keys at startup
+def check_api_keys():
+    missing = []
+    if not settings.groq_api_key and not settings.google_api_key and not settings.openrouter_api_key:
+        missing.append("LLM API (GROQ_API_KEY, GOOGLE_API_KEY, or OPENROUTER_API_KEY)")
+    if not settings.deepgram_api_key:
+        missing.append("DEEPGRAM_API_KEY")
+    return missing
+
+MISSING_APIS = check_api_keys()
+if MISSING_APIS:
+    logger.warning(f"Missing API keys: {MISSING_APIS}")
+else:
+    logger.info("All API keys configured")
+
+# Only import LLM-dependent modules if APIs are available
+if not MISSING_APIS:
+    from utils.tts import synthesize as tts_synthesize
+    from utils.stt import transcribe as stt_transcribe
+    from src.orchastrate import InterviewSession
+else:
+    tts_synthesize = None
+    stt_transcribe = None
+    InterviewSession = None
 
 # Global session storage
 active_sessions = {}
@@ -157,6 +179,19 @@ async def setup_interview(
     session_state: dict
 ) -> Tuple[str, List, dict, gr.update, gr.update]:
     """Initialize interview session with uploaded documents"""
+    
+    # Check if imports failed due to missing API keys
+    if InterviewSession is None:
+        missing = check_api_keys()
+        return (
+            f"❌ Cannot start interview - API keys not configured!\n\n"
+            f"Missing: {', '.join(missing)}\n\n"
+            f"Please add these as Secrets in your HuggingFace Space settings.",
+            [],
+            session_state,
+            gr.update(interactive=False),
+            gr.update(visible=False)
+        )
     
     if jd_file is None or resume_file is None:
         return (
@@ -542,6 +577,19 @@ def create_app():
         
         # Session state
         session_state = gr.State({})
+        
+        # Warning banner if APIs missing
+        if MISSING_APIS:
+            gr.Markdown(
+                f"""
+                ## ⚠️ Configuration Error
+                
+                The following API keys are missing: **{', '.join(MISSING_APIS)}**
+                
+                Please add them as Secrets in Hugging Face Spaces settings.
+                """,
+                elem_classes=["warning"]
+            )
         
         # Header
         gr.Markdown(
