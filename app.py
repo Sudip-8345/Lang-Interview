@@ -735,6 +735,7 @@ def create_app():
                         chatbot = gr.Chatbot(
                             label="Interview Conversation",
                             height=500,
+                            type="messages",
                             elem_classes=["chat-container"]
                         )
                         
