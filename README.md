@@ -1,4 +1,4 @@
-# LangInterview AI
+# AskAI.hr
 
 **Live Demo:** [https://huggingface.co/spaces/tagc23/AskAI.hr](https://huggingface.co/spaces/tagc23/AskAI.hr)
 
